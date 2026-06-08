@@ -1,0 +1,271 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f8f9fa;
+  --foreground: #333333;
+  --primary: #ff4757;
+  --primary-hover: #e04050;
+  --primary-light: #fff0f1;
+  --dark: #2f3542;
+  --muted: #666666;
+  --border: rgba(0, 0, 0, 0.08);
+  --card: #ffffff;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-noto-sans);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-noto-sans), "Noto Sans KR", system-ui, sans-serif;
+}
+
+/* PC / 모바일 뷰 */
+html[data-view-mode="mobile"] .view-desktop-only {
+  display: none !important;
+}
+
+html[data-view-mode="desktop"] .view-mobile-only {
+  display: none !important;
+}
+
+.ui-card {
+  background: var(--card);
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+  border-radius: 25px;
+  font-weight: 700;
+  transition: background 0.3s;
+}
+
+.btn-primary:hover {
+  background: var(--primary-hover);
+}
+
+.btn-outline {
+  padding: 8px 16px;
+  border: 1px solid var(--primary);
+  color: var(--primary);
+  border-radius: 4px;
+  font-weight: 500;
+  transition: background 0.3s, color 0.3s;
+}
+
+.btn-outline:hover {
+  background: var(--primary);
+  color: #fff;
+}
+
+.btn-card-dark {
+  display: block;
+  text-align: center;
+  background: var(--dark);
+  color: #fff;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.3s;
+}
+
+.btn-card-dark:hover {
+  background: var(--primary);
+}
+
+.section-title {
+  font-size: 26px;
+  font-weight: 700;
+  margin-bottom: 30px;
+  position: relative;
+  padding-left: 15px;
+}
+
+.section-title::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 4px;
+  width: 5px;
+  height: 24px;
+  background: var(--primary);
+  border-radius: 2px;
+}
+
+/* 히어로 */
+.nihon-hero {
+  background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)),
+    url("https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=1920&q=80")
+      no-repeat center / cover;
+  min-height: 420px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  color: #fff;
+  padding: 48px 20px;
+}
+
+@media (min-width: 768px) {
+  .nihon-hero {
+    min-height: 500px;
+  }
+}
+
+/* 검색 바 */
+.nihon-search-bar {
+  background: #fff;
+  padding: 15px 20px;
+  border-radius: 50px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+  width: 100%;
+  max-width: 800px;
+  overflow: visible;
+}
+
+.nihon-search-item {
+  flex: 1;
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.nihon-search-item--dates {
+  min-width: 160px;
+  overflow: visible;
+}
+
+.nihon-search-item label {
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 5px;
+  font-weight: 700;
+}
+
+.nihon-search-item input,
+.nihon-search-item select {
+  width: 100%;
+  border: none;
+  outline: none;
+  font-size: 16px;
+  color: #333;
+  background: transparent;
+}
+
+/* 인기 여행지 그리드 */
+.destinations-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 25px;
+  margin-bottom: 60px;
+}
+
+.dest-card {
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  transition: transform 0.3s;
+}
+
+.dest-card:hover {
+  transform: translateY(-5px);
+}
+
+.dest-card-img {
+  height: 180px;
+  background-size: cover;
+  background-position: center;
+}
+
+/* 플래너 프리뷰 */
+.planner-preview {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  background: #fff;
+  padding: 30px;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+@media (max-width: 900px) {
+  .planner-preview {
+    grid-template-columns: 1fr;
+  }
+}
+
+.nihon-timeline {
+  border-left: 2px dashed #ddd;
+  padding-left: 20px;
+  margin-left: 10px;
+}
+
+.nihon-timeline-item {
+  position: relative;
+  margin-bottom: 25px;
+}
+
+.nihon-timeline-item::before {
+  content: "";
+  position: absolute;
+  left: -26px;
+  top: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50px;
+  background: var(--primary);
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 2px var(--primary);
+}
+
+.map-mockup {
+  background: #e3edf7;
+  border-radius: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #5588bb;
+  font-weight: 700;
+  min-height: 300px;
+  border: 2px inset rgba(0, 0, 0, 0.02);
+  font-size: 15px;
+  text-align: center;
+  padding: 20px;
+}
+
+/* 사이드바 레이아웃 (기능 페이지) */
+html[data-view-mode="desktop"] .page-with-sidebar {
+  display: flex;
+  align-items: flex-start;
+  gap: 2rem;
+}
+
+html[data-view-mode="mobile"] .page-with-sidebar {
+  display: block;
+}
+
+html[data-view-mode="desktop"] .page-main-content {
+  flex: 1;
+  min-width: 0;
+  padding-bottom: 2rem;
+}
+
+html[data-view-mode="desktop"] .shortcuts-nav-panel {
+  position: sticky;
+  top: 5.5rem;
+}

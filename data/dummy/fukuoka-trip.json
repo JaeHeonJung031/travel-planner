@@ -1,0 +1,37 @@
+{
+  "title": "후쿠오카 벚꽃 & 맛집 3일",
+  "region": "FUKUOKA",
+  "totalBudgetKrw": 1200000,
+  "days": [
+    {
+      "dayIndex": 0,
+      "label": "1일차 · 하카타",
+      "items": [
+        { "placeName": "하카타역 · 삿포로 라멘 본점", "startTime": "09:30", "endTime": "10:30", "transport": "도보", "notes": "아침 라멘" },
+        { "placeName": "캐널시티 하카타", "startTime": "11:00", "endTime": "14:00", "transport": "지하철", "notes": "쇼핑·점심" },
+        { "placeName": "나카스 야타이 거리", "startTime": "18:00", "endTime": "21:00", "transport": "지하철", "notes": "야타이 저녁" },
+        { "placeName": "오호리 공원", "startTime": "21:30", "endTime": "22:30", "transport": "버스", "notes": "야경 산책" }
+      ]
+    },
+    {
+      "dayIndex": 1,
+      "label": "2일차 · 다자이후",
+      "items": [
+        { "placeName": "다자이후 역", "startTime": "09:00", "endTime": "09:30", "transport": "JR", "notes": "하카타에서 30분" },
+        { "placeName": "다자이후 텐만구", "startTime": "09:30", "endTime": "12:00", "transport": "도보", "notes": "참배·거리 산책" },
+        { "placeName": "스타벅스 다자이후 테라스", "startTime": "12:30", "endTime": "13:30", "transport": "도보", "notes": "점심·카페" },
+        { "placeName": "우미노나카미치", "startTime": "15:00", "endTime": "18:00", "transport": "버스", "notes": "해변 카페 거리" }
+      ]
+    },
+    {
+      "dayIndex": 2,
+      "label": "3일차 · 모지",
+      "items": [
+        { "placeName": "모지코 역", "startTime": "10:00", "endTime": "10:30", "transport": "JR", "notes": "" },
+        { "placeName": "모지코 레트로 거리", "startTime": "10:30", "endTime": "13:00", "transport": "도보", "notes": "사진·점심" },
+        { "placeName": "야후오케! 돔", "startTime": "14:00", "endTime": "16:00", "transport": "버스", "notes": "야구 경기(시즌)" },
+        { "placeName": "하카타역 귀국", "startTime": "17:30", "endTime": "18:00", "transport": "신칸센", "notes": "귀국 준비" }
+      ]
+    }
+  ]
+}

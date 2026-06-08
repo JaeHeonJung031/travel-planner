@@ -1,0 +1,10 @@
+{
+  "name": "니혼 플래너 - 일본 여행 플래너",
+  "short_name": "니혼 플래너",
+  "description": "도쿄, 교토, 오사카, 삿포로 맞춤 일본 여행 플래너",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8f9fa",
+  "theme_color": "#ff4757",
+  "lang": "ko"
+}

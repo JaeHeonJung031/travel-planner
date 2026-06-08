@@ -1,0 +1,268 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum JapanRegion {
+  OSAKA_KYOTO
+  FUKUOKA
+  TOKYO
+  SAPPORO
+}
+
+enum BudgetCategory {
+  ACCOMMODATION
+  TRANSPORT
+  FOOD
+  SIGHTSEEING
+  OTHER
+}
+
+enum AccommodationType {
+  HOTEL
+  RYOKAN
+  GUESTHOUSE
+}
+
+enum CollaboratorRole {
+  OWNER
+  EDITOR
+  VIEWER
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String?   @unique
+  emailVerified DateTime?
+  name          String?
+  image         String?
+  passwordHash  String?
+  phone         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts            Account[]
+  sessions            Session[]
+  trips               Trip[]
+  checklists          Checklist[]
+  budgets             Budget[]
+  chatSessions        ChatSession[]
+  notificationSetting NotificationSetting?
+  expenseEntries      ExpenseEntry[]
+  tripCollaborations  TripCollaborator[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Trip {
+  id          String      @id @default(cuid())
+  userId      String
+  title       String
+  region      JapanRegion
+  startDate   DateTime
+  endDate     DateTime
+  totalBudget Int?
+  currency    String      @default("KRW")
+  shareToken  String?     @unique
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  days           TripDay[]
+  collaborators  TripCollaborator[]
+  budgets        Budget[]
+  expenseEntries ExpenseEntry[]
+}
+
+model TripCollaborator {
+  id        String           @id @default(cuid())
+  tripId    String
+  userId    String
+  role      CollaboratorRole @default(EDITOR)
+  invitedAt DateTime         @default(now())
+
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tripId, userId])
+}
+
+model TripDay {
+  id        String   @id @default(cuid())
+  tripId    String
+  dayIndex  Int
+  date      DateTime
+  createdAt DateTime @default(now())
+
+  trip  Trip       @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  items TripItem[]
+
+  @@unique([tripId, dayIndex])
+}
+
+model TripItem {
+  id          String  @id @default(cuid())
+  tripDayId   String
+  sortOrder   Int
+  placeName   String
+  startTime   String?
+  endTime     String?
+  transport   String?
+  notes       String?
+  placeId     String?
+
+  tripDay TripDay @relation(fields: [tripDayId], references: [id], onDelete: Cascade)
+}
+
+model Checklist {
+  id        String   @id @default(cuid())
+  userId    String
+  tripId    String?
+  title     String   @default("출발 전 체크리스트")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items ChecklistItem[]
+}
+
+model ChecklistItem {
+  id          String  @id @default(cuid())
+  checklistId String
+  label       String
+  isDefault   Boolean @default(false)
+  isChecked   Boolean @default(false)
+  sortOrder   Int
+
+  checklist Checklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+}
+
+model Budget {
+  id         String   @id @default(cuid())
+  userId     String
+  tripId     String?
+  totalKrw   Int
+  totalJpy   Int?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trip       Trip?             @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  allocations BudgetAllocation[]
+}
+
+model BudgetAllocation {
+  id       String         @id @default(cuid())
+  budgetId String
+  category BudgetCategory
+  amountKrw Int
+  amountJpy Int?
+
+  budget Budget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+}
+
+model ExpenseEntry {
+  id          String         @id @default(cuid())
+  userId      String
+  tripId      String?
+  category    BudgetCategory
+  amountKrw   Int
+  amountJpy   Int?
+  description String?
+  spentAt     DateTime       @default(now())
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trip Trip? @relation(fields: [tripId], references: [id], onDelete: SetNull)
+}
+
+model ChatSession {
+  id        String   @id @default(cuid())
+  userId    String
+  provider  String?
+  title     String   @default("여행 상담")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  sessionId String
+  role      String
+  content   String   @db.Text
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+model NotificationSetting {
+  id              String  @id @default(cuid())
+  userId          String  @unique
+  enabled         Boolean @default(true)
+  notifyTime      String  @default("08:00")
+  kakaoUserId     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Place {
+  id          String      @id @default(cuid())
+  googleId    String      @unique
+  region      JapanRegion
+  theme       String
+  name        String
+  nameKo      String?
+  description String      @db.Text
+  address     String?
+  lat         Float?
+  lng         Float?
+  rating      Float?
+  priceLevel  Int?
+  hours       Json?
+  tags        String[]
+  tips        String?     @db.Text
+  imageUrl    String?
+  verified    Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
