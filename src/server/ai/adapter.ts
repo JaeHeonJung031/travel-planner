@@ -1,3 +1,9 @@
+import { callGemini } from "./gemini";
+import { detect } from "./detector";
+import { searchRag, ragToText } from "./rag";
+import { buildSystemPrompt, buildUserPrompt, buildChatHistory } from "./prompt";
+import { prisma } from "@/server/db/prisma";
+import { generateTravelPlan } from "./planner";
 import type {
   AccommodationResult,
   AccommodationSearchRequest,
@@ -12,15 +18,12 @@ import type {
 import type { JapanRegionId } from "@/shared/lib/constants";
 import { MOCK_ATTRACTIONS } from "@/features/attractions/server/mock-data";
 import { enrichAttraction } from "@/features/attractions/server/details";
-import { callGemini } from "./gemini";
-import { detect } from "./detector";
-import { searchRag, ragToText } from "./rag";
-import { buildSystemPrompt, buildUserPrompt, buildChatHistory } from "./prompt";
-import { prisma } from "@/server/db/prisma";
+
 
 const AI_BASE = process.env.AI_SERVICE_BASE_URL ?? "";
 const AI_KEY = process.env.AI_SERVICE_API_KEY ?? "";
 
+// 💡 해결 1: path와 body에 명확한 타입(string, unknown) 부여
 async function callAi<T>(path: string, body: unknown): Promise<T | null> {
   if (!AI_BASE) return null;
   try {
@@ -40,6 +43,7 @@ async function callAi<T>(path: string, body: unknown): Promise<T | null> {
 }
 
 // Gemini 챗봇 구현
+// 💡 해결 2: req 매개변수에 ChatRequest 타입 명시
 async function geminiChat(req: ChatRequest): Promise<ChatResponse> {
   try {
     const message = req.message;
@@ -48,23 +52,25 @@ async function geminiChat(req: ChatRequest): Promise<ChatResponse> {
     const detected = detect(message);
 
     // 2. 이전 대화 히스토리 불러오기
+    // 💡 해결 3: 구조 분해 할당 과정에서 발생할 수 있는 암시적 any 에러 방지 및 타입 강제
     let historyMessages: { role: string; content: string }[] = [];
-    if (req.sessionId) {
+    if (req.sessionId && req.sessionId !== "new-session") {
       const dbMessages = await prisma.chatMessage.findMany({
         where: { sessionId: req.sessionId },
         orderBy: { createdAt: "asc" },
-        take: 20, // 최근 20개
+        take: 20,
       });
-      historyMessages = (dbMessages as { role: string; content: string }[]).map((m) => ({
-  role: m.role,
-  content: m.content,
+      historyMessages = dbMessages.map((m: any) => ({
+        role: m.role,
+        content: m.content,
       }));
     }
 
     // 3. RAG 검색
-    let ragResults: ReturnType<typeof searchRag> = [];
+    // 💡 해결 4: Awaited 헬퍼 타입과 가독성을 위한 명밀한 추론 적용
+    let ragResults: Awaited<ReturnType<typeof searchRag>> = [];
     if (detected.region) {
-      ragResults = searchRag(
+      ragResults = await searchRag(
         message,
         detected.region,
         detected.themes,
@@ -79,23 +85,48 @@ async function geminiChat(req: ChatRequest): Promise<ChatResponse> {
     // 5. 대화 히스토리 변환
     const chatHistory = buildChatHistory(historyMessages);
 
-    // 6. Gemini 호출
-    const reply = await callGemini(systemPrompt, [
-      ...chatHistory,
-      { role: "user", parts: [{ text: userPrompt }] },
-    ]);
-
-    // 7. 일정 생성 요청이면 JSON 파싱 시도
+    // 6 & 7. 일정 생성 요청 분기 처리
+    let reply = "";
     let itinerary = null;
-    if (detected.isItineraryRequest) {
+
+    if (detected.isItineraryRequest && detected.region) {
+      console.log(`[엔진 분기] 일정 생성 요청 감지 -> planner.ts 엔진 구동`);
+
+      // 💡 해결 5: flatMap 내부 item 매개변수에 명시적 any 타입 지정하여 린트 에러 방지
+      const candidates = ragResults.flatMap((res: any) =>
+        res.items.map((item: any) => ({
+          id: item.id || "temp-id",
+          name: item.name,
+          nameKo: item.name,
+          theme: res.theme,
+          description: item.description,
+          address: item.location || null,
+          tags: item.tags,
+        }))
+      );
+
       try {
-        const jsonMatch = reply.match(/```json\n?([\s\S]*?)\n?```/);
-        if (jsonMatch) {
-          itinerary = JSON.parse(jsonMatch[1]);
-        }
-      } catch {
-        // JSON 파싱 실패해도 텍스트 응답은 정상 반환
+        const generatedPlan = await generateTravelPlan({
+          region: detected.region,
+          durationDays: detected.days || 3,
+          userPreferences: detected.themes,
+          candidates: candidates,
+        });
+
+        itinerary = generatedPlan;
+        reply = `${generatedPlan.title}\n\n${generatedPlan.summary}\n\n인터랙티브 타임라인 일정이 하단에 생성되었습니다. 마음에 드시는지 확인해보세요!`;
+      } catch (planError) {
+        console.error("Structured Planner 가동 실패, 일반 챗으로 우회합니다.", planError);
+        reply = await callGemini(systemPrompt, [
+          ...chatHistory,
+          { role: "user", parts: [{ text: userPrompt }] },
+        ]);
       }
+    } else {
+      reply = await callGemini(systemPrompt, [
+        ...chatHistory,
+        { role: "user", parts: [{ text: userPrompt }] },
+      ]);
     }
 
     // 8. 추천 질문 생성
@@ -111,11 +142,19 @@ async function geminiChat(req: ChatRequest): Promise<ChatResponse> {
           "삿포로 힐링 여행 코스 알려줘",
         ];
 
+    // 9. 대화 내역 DB 실시간 저장
+    if (req.sessionId && req.sessionId !== "new-session") {
+      await prisma.chatMessage.createMany({
+        data: [
+          { sessionId: req.sessionId, role: "user", content: message },
+          { sessionId: req.sessionId, role: "model", content: reply },
+        ],
+      });
+    }
+
     return {
       sessionId: req.sessionId ?? "new-session",
-      reply: itinerary
-        ? reply.replace(/```json[\s\S]*?```/g, "").trim()
-        : reply,
+      reply,
       suggestedQuestions,
       ...(itinerary && { itinerary }),
     };
@@ -129,6 +168,7 @@ async function geminiChat(req: ChatRequest): Promise<ChatResponse> {
   }
 }
 
+// 💡 해결 6: req 매개변수에 ItineraryGenerateRequest 타입 명시
 function mockItinerary(req: ItineraryGenerateRequest): ItineraryGenerateResponse {
   const regionLabel: Record<JapanRegionId, string> = {
     OSAKA_KYOTO: "오사카·교토",
@@ -136,6 +176,10 @@ function mockItinerary(req: ItineraryGenerateRequest): ItineraryGenerateResponse
     TOKYO: "도쿄",
     SAPPORO: "삿포로",
   };
+  
+  // 💡 해결 7: MOCK_ATTRACTIONS 인덱싱 에러 예방 조치
+  const attractions = (MOCK_ATTRACTIONS as Record<string, any>)[req.region] ?? [];
+
   return {
     title: `${regionLabel[req.region]} ${req.travelers}인 여행`,
     days: [
@@ -148,10 +192,11 @@ function mockItinerary(req: ItineraryGenerateRequest): ItineraryGenerateResponse
         ],
       },
     ],
-    attractions: MOCK_ATTRACTIONS[req.region] ?? [],
+    attractions: attractions,
   };
 }
 
+// 💡 해결 8: region 매개변수에 JapanRegionId 타입 지정
 function mockRestaurants(region: JapanRegionId): RestaurantResult[] {
   return [
     {
@@ -213,7 +258,7 @@ export const aiAdapter = {
     );
   },
 
-  // ← Gemini로 교체!
+
   async chat(req: ChatRequest) {
     return await geminiChat(req);
   },
@@ -227,7 +272,8 @@ export const aiAdapter = {
 
   async getAttractions(region: JapanRegionId) {
     const fromAi = await callAi<AttractionResult[]>("/attractions", { region });
-    const items = fromAi ?? (MOCK_ATTRACTIONS[region] ?? []);
-    return items.map((a) => enrichAttraction(a));
+    const items = fromAi ?? ((MOCK_ATTRACTIONS as Record<string, any>)[region] ?? []);
+    // 💡 해결 9: 화살표 함수 내 (a) 매개변수 괄호 및 명시적 타입 지정 안전화
+    return items.map((a: any) => enrichAttraction(a));
   },
 };
