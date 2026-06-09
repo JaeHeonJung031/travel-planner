@@ -1,3 +1,4 @@
+// src/features/chat/server/chat.service.ts
 import { aiAdapter } from "@/server/ai/adapter";
 import { prisma } from "@/server/db/prisma";
 import type { JapanRegionId } from "@/shared/lib/constants";
@@ -38,8 +39,14 @@ export async function sendChatMessage(params: {
     tripContext: { history },
   });
 
+  // ✅ itinerary가 있으면 metadata에 함께 저장
   await prisma.chatMessage.create({
-    data: { sessionId: chatSession.id, role: "assistant", content: ai.reply },
+    data: {
+      sessionId: chatSession.id,
+      role: "assistant",
+      content: ai.reply,
+      metadata: ai.itinerary ? { itinerary: ai.itinerary } : undefined,
+    },
   });
 
   await prisma.chatSession.update({
@@ -48,10 +55,10 @@ export async function sendChatMessage(params: {
   });
 
   return {
-  sessionId: chatSession.id,
-  reply: ai.reply,
-  suggestedQuestions: ai.suggestedQuestions,
-  itinerary: ai.itinerary ?? null,  // ← 추가!
+    sessionId: chatSession.id,
+    reply: ai.reply,
+    suggestedQuestions: ai.suggestedQuestions,
+    itinerary: ai.itinerary ?? null,
   };
 }
 
@@ -66,10 +73,12 @@ export async function getLatestChatSession(userId: string) {
 
   return {
     sessionId: chatSession.id,
-    messages: chatSession.messages.map((m : any) => ({
+    // ✅ messages에 itinerary 포함해서 반환
+    messages: chatSession.messages.map((m: any) => ({
       id: m.id,
       role: m.role as "user" | "assistant",
       content: m.content,
+      itinerary: (m.metadata as any)?.itinerary ?? undefined,
     })),
   };
 }
