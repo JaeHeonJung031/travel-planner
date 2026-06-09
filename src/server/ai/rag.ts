@@ -87,7 +87,7 @@ export async function searchRag(
       });
 
       // DB 장소들을 RagItem 형태로 규격화하여 로컬 배열과 병합
-      const mappedDbItems: RagItem[] = dbPlaces.map((p) => ({
+      const mappedDbItems: RagItem[] = dbPlaces.map((p : any) => ({
         id: p.id,
         name: p.nameKo || p.name,
         description: p.description,

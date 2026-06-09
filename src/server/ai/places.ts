@@ -68,8 +68,7 @@ export async function searchPlaces(
 // 장소 상세 정보 (리뷰 포함)
 export async function getPlaceDetail(placeId: string): Promise<GooglePlace | null> {
   const fields = "place_id,name,formatted_address,geometry,rating,price_level,opening_hours,reviews,photos,types";
-  const url = `${BASE_URL}/details/json?place_id=${placeId}&fields=${fields}&language=ko&key=${PLACES_API_KEY}`;
-
+  const url = `${BASE_URL}/details/json?place_id=${placeId}&fields=${fields}&language=ko&reviews_no_translations=true&key=${PLACES_API_KEY}`;
   try {
     const res = await fetch(url);
     const data = await res.json();

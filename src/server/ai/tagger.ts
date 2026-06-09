@@ -98,7 +98,7 @@ export async function tagPlaces(
 
   for (const place of places) {
     // API 호출 간격 (과부하 방지)
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     const tagged = await tagPlace(place, region);
     if (tagged) results.push(tagged);
   }

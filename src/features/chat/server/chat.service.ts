@@ -66,7 +66,7 @@ export async function getLatestChatSession(userId: string) {
 
   return {
     sessionId: chatSession.id,
-    messages: chatSession.messages.map((m) => ({
+    messages: chatSession.messages.map((m : any) => ({
       id: m.id,
       role: m.role as "user" | "assistant",
       content: m.content,
