@@ -1,9 +1,10 @@
+// src/server/ai/adapter.ts
 import { callGemini } from "./gemini";
 import { detect } from "./detector";
 import { searchRag } from "./rag";
 import { buildSystemPrompt, buildUserPrompt, buildChatHistory } from "./prompt";
 import { generateTravelPlan } from "./planner";
-import { prisma } from "@/server/db/prisma";
+
 import type {
   AccommodationResult,
   AccommodationSearchRequest,
@@ -23,7 +24,7 @@ import { enrichAttraction } from "@/features/attractions/server/details";
 const AI_BASE = process.env.AI_SERVICE_BASE_URL ?? "";
 const AI_KEY = process.env.AI_SERVICE_API_KEY ?? "";
 
-// 💡 해결 1: path와 body에 명확한 타입(string, unknown) 부여
+
 async function callAi<T>(path: string, body: unknown): Promise<T | null> {
   if (!AI_BASE) return null;
   try {
@@ -43,7 +44,7 @@ async function callAi<T>(path: string, body: unknown): Promise<T | null> {
 }
 
 // Gemini 챗봇 구현
-// 💡 해결 2: req 매개변수에 ChatRequest 타입 명시
+
 async function geminiChat(req: ChatRequest): Promise<ChatResponse> {
   try {
     const message = req.message;
@@ -51,31 +52,15 @@ async function geminiChat(req: ChatRequest): Promise<ChatResponse> {
     // 1. 지역 + 주제 + 기간 감지
     const detected = detect(message);
 
-    // 2. 이전 대화 히스토리 불러오기
-    // 💡 해결 3: 구조 분해 할당 과정에서 발생할 수 있는 암시적 any 에러 방지 및 타입 강제
-    let historyMessages: { role: string; content: string }[] = [];
-    if (req.sessionId && req.sessionId !== "new-session") {
-      const dbMessages = await prisma.chatMessage.findMany({
-        where: { sessionId: req.sessionId },
-        orderBy: { createdAt: "asc" },
-        take: 20,
-      });
-      historyMessages = dbMessages.map((m: any) => ({
-        role: m.role,
-        content: m.content,
-      }));
-    }
+    // 2. 이전 대화 히스토리 — chat.service.ts가 tripContext.history로 전달한 값 사용 (DB 중복 조회 방지)
+    const historyMessages: { role: string; content: string }[] =
+      (req.tripContext?.history as { role: string; content: string }[]) ?? [];
 
     // 3. RAG 검색
-    // 💡 해결 4: Awaited 헬퍼 타입과 가독성을 위한 명밀한 추론 적용
+
     let ragResults: Awaited<ReturnType<typeof searchRag>> = [];
     if (detected.region) {
-      ragResults = await searchRag(
-        message,
-        detected.region,
-        detected.themes,
-        5
-      );
+      ragResults = await searchRag(message, detected.region, detected.themes, 5);
     }
 
     // 4. 프롬프트 빌드
@@ -92,7 +77,7 @@ async function geminiChat(req: ChatRequest): Promise<ChatResponse> {
     if (detected.isItineraryRequest && detected.region) {
       console.log(`[엔진 분기] 일정 생성 요청 감지 -> planner.ts 엔진 구동`);
 
-      // 💡 해결 5: flatMap 내부 item 매개변수에 명시적 any 타입 지정하여 린트 에러 방지
+
       const candidates = ragResults.flatMap((res: any) =>
         res.items.map((item: any) => ({
           id: item.id || "temp-id",
@@ -159,7 +144,7 @@ async function geminiChat(req: ChatRequest): Promise<ChatResponse> {
   }
 }
 
-// 💡 해결 6: req 매개변수에 ItineraryGenerateRequest 타입 명시
+
 function mockItinerary(req: ItineraryGenerateRequest): ItineraryGenerateResponse {
   const regionLabel: Record<JapanRegionId, string> = {
     OSAKA_KYOTO: "오사카·교토",
@@ -167,8 +152,7 @@ function mockItinerary(req: ItineraryGenerateRequest): ItineraryGenerateResponse
     TOKYO: "도쿄",
     SAPPORO: "삿포로",
   };
-  
-  // 💡 해결 7: MOCK_ATTRACTIONS 인덱싱 에러 예방 조치
+
   const attractions = (MOCK_ATTRACTIONS as Record<string, any>)[req.region] ?? [];
 
   return {
@@ -187,7 +171,7 @@ function mockItinerary(req: ItineraryGenerateRequest): ItineraryGenerateResponse
   };
 }
 
-// 💡 해결 8: region 매개변수에 JapanRegionId 타입 지정
+
 function mockRestaurants(region: JapanRegionId): RestaurantResult[] {
   return [
     {
@@ -236,10 +220,57 @@ function mockStays(): AccommodationResult[] {
 
 export const aiAdapter = {
   async generateItinerary(req: ItineraryGenerateRequest) {
-    return (
-      (await callAi<ItineraryGenerateResponse>("/itinerary/generate", req)) ??
-      mockItinerary(req)
-    );
+    try {
+      const start = new Date(req.startDate);
+      const end = new Date(req.endDate);
+      const durationDays = Math.max(
+        1,
+        Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
+      );
+      const themes = (req.preferences ?? []) as import("./detector").Theme[];
+      const ragResults = await searchRag(
+        req.region + " 여행 일정",
+        req.region as import("./detector").Region,
+        themes,
+        8
+      );
+      const candidates = ragResults.flatMap((res: any) =>
+        res.items.map((item: any) => ({
+          id: item.id || "temp-id",
+          name: item.name,
+          nameKo: item.name,
+          theme: res.theme,
+          description: item.description,
+          address: item.location || null,
+          tags: item.tags,
+        }))
+      );
+      const plan = await generateTravelPlan({
+        region: req.region,
+        durationDays,
+        userPreferences: themes.length > 0 ? themes : ["sightseeing", "food"],
+        candidates,
+      });
+      const days: ItineraryGenerateResponse["days"] = plan.schedule.map((s: any) => {
+        const date = new Date(start);
+        date.setDate(start.getDate() + s.day - 1);
+        return {
+          dayIndex: s.day,
+          date: date.toISOString().split("T")[0],
+          items: s.places.map((p: any) => ({
+            placeId: p.placeId,
+            placeName: p.name,
+            startTime: p.recommendedTime?.split(" - ")[0] ?? "",
+            endTime: p.recommendedTime?.split(" - ")[1] ?? "",
+            notes: p.contextualMemo,
+          })),
+        };
+      });
+      return { title: plan.title, days, attractions: [] };
+    } catch (e) {
+      console.error("[generateItinerary] AI 실패, mock으로 폴백:", e);
+      return mockItinerary(req);
+    }
   },
 
   async searchAccommodations(req: AccommodationSearchRequest) {
@@ -264,7 +295,7 @@ export const aiAdapter = {
   async getAttractions(region: JapanRegionId) {
     const fromAi = await callAi<AttractionResult[]>("/attractions", { region });
     const items = fromAi ?? ((MOCK_ATTRACTIONS as Record<string, any>)[region] ?? []);
-    // 💡 해결 9: 화살표 함수 내 (a) 매개변수 괄호 및 명시적 타입 지정 안전화
+
     return items.map((a: any) => enrichAttraction(a));
   },
 };
