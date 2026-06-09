@@ -48,9 +48,10 @@ export async function sendChatMessage(params: {
   });
 
   return {
-    sessionId: chatSession.id,
-    reply: ai.reply,
-    suggestedQuestions: ai.suggestedQuestions,
+  sessionId: chatSession.id,
+  reply: ai.reply,
+  suggestedQuestions: ai.suggestedQuestions,
+  itinerary: ai.itinerary ?? null,  // ← 추가!
   };
 }
 

@@ -1,9 +1,9 @@
 import { callGemini } from "./gemini";
 import { detect } from "./detector";
-import { searchRag, ragToText } from "./rag";
+import { searchRag } from "./rag";
 import { buildSystemPrompt, buildUserPrompt, buildChatHistory } from "./prompt";
-import { prisma } from "@/server/db/prisma";
 import { generateTravelPlan } from "./planner";
+import { prisma } from "@/server/db/prisma";
 import type {
   AccommodationResult,
   AccommodationSearchRequest,
@@ -142,15 +142,6 @@ async function geminiChat(req: ChatRequest): Promise<ChatResponse> {
           "삿포로 힐링 여행 코스 알려줘",
         ];
 
-    // 9. 대화 내역 DB 실시간 저장
-    if (req.sessionId && req.sessionId !== "new-session") {
-      await prisma.chatMessage.createMany({
-        data: [
-          { sessionId: req.sessionId, role: "user", content: message },
-          { sessionId: req.sessionId, role: "model", content: reply },
-        ],
-      });
-    }
 
     return {
       sessionId: req.sessionId ?? "new-session",

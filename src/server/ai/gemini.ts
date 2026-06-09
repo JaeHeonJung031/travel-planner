@@ -1,20 +1,20 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// 모델 상수 (맨 위에!)
+// 모델 상수
 export const CHAT_MODEL = "gemini-2.5-flash";
 export const TAGGER_MODEL = "gemini-2.5-flash-lite";
 
 const apiKey = process.env.GEMINI_API_KEY ?? "";
-const genAI = new GoogleGenerativeAI(apiKey);
+export const genAI = new GoogleGenerativeAI(apiKey); // ← export 추가
 
 export async function callGemini(
   systemPrompt: string,
   messages: { role: "user" | "model"; parts: { text: string }[] }[],
-  model: string = CHAT_MODEL  // ← 기본값 추가
+  model: string = CHAT_MODEL
 ): Promise<string> {
   try {
     const geminiModel = genAI.getGenerativeModel({
-      model: model,  // ← 이것도 수정
+      model: model,
       systemInstruction: {
         parts: [{ text: systemPrompt }],
         role: "system",

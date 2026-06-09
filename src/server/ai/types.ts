@@ -78,6 +78,7 @@ export type ChatResponse = {
   reply: string;
   suggestedQuestions?: string[];
   itineraryPatch?: Partial<ItineraryGenerateResponse>;
+  itinerary?: any;
 };
 
 export type RestaurantSearchRequest = {
